@@ -1,36 +1,11 @@
 package com.vanced.manager.installer.base
 
-import android.content.Context
-import androidx.annotation.CallSuper
-import com.vanced.manager.util.log
-import com.xinto.apkhelper.statusCallback
-import com.xinto.apkhelper.statusCallbackBuilder
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
+import com.vanced.manager.repository.manager.PackageManagerResult
 
-open class AppInstaller : KoinComponent {
+abstract class AppInstaller {
 
-    val context: Context by inject()
+    abstract suspend fun install(appVersions: List<String>?)
 
-    @CallSuper
-    open fun install(
-        onDone: () -> Unit
-    ) {
-        setStatusCallback(onDone = onDone)
-    }
-
-    private fun setStatusCallback(
-        onDone: () -> Unit
-    ) {
-        statusCallback = statusCallbackBuilder(
-            onInstall = { _, _ ->
-                onDone()
-            },
-            onInstallFailed = { error, _, _ ->
-                onDone()
-                log("install", error)
-            }
-        )
-    }
+    abstract suspend fun installRoot(appVersions: List<String>?): PackageManagerResult<Nothing>
 
 }

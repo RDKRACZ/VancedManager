@@ -1,31 +1,52 @@
 package com.vanced.manager.downloader.impl
 
-import com.vanced.manager.domain.model.App
+import android.content.Context
 import com.vanced.manager.downloader.api.MicrogAPI
 import com.vanced.manager.downloader.base.AppDownloader
-import com.vanced.manager.installer.impl.MicrogInstaller
-import com.vanced.manager.ui.viewmodel.HomeViewModel
+import com.vanced.manager.downloader.util.getMicrogPath
+import java.io.File
 
 class MicrogDownloader(
-    microgInstaller: MicrogInstaller,
     private val microgAPI: MicrogAPI,
-) : AppDownloader(
-    appName = "microg",
-    appInstaller = microgInstaller
-) {
+    private val context: Context,
+) : AppDownloader() {
 
     override suspend fun download(
-        app: App,
-        viewModel: HomeViewModel
-    ) {
-        downloadFile(
-            file = File(
-                call = microgAPI.getFile(),
-                fileName = "microg.apk"
+        appVersions: List<String>?,
+        onProgress: (Float) -> Unit,
+        onFile: (String) -> Unit
+    ): DownloadStatus {
+        val downloadStatus = downloadFiles(
+            files = arrayOf(
+                DownloadFile(
+                    call = microgAPI.getFile(),
+                    fileName = "microg.apk"
+                )
             ),
-            viewModel = viewModel,
-            folderStructure = ""
+            onProgress = onProgress,
+            onFile = onFile
         )
+        if (downloadStatus.isError)
+            return downloadStatus
+
+        return DownloadStatus.Success
+    }
+
+    override suspend fun downloadRoot(
+        appVersions: List<String>?,
+        onProgress: (Float) -> Unit,
+        onFile: (String) -> Unit
+    ): DownloadStatus {
+        throw IllegalAccessException("Vanced microG does not have a root downloader")
+    }
+
+    override fun getSavedFilePath(): String {
+        val directory = File(getMicrogPath(context))
+
+        if (!directory.exists())
+            directory.mkdirs()
+
+        return directory.path
     }
 
 }

@@ -1,63 +1,82 @@
 package com.vanced.manager.downloader.impl
 
-import com.vanced.manager.domain.model.App
+import android.content.Context
 import com.vanced.manager.downloader.api.VancedAPI
 import com.vanced.manager.downloader.base.AppDownloader
-import com.vanced.manager.installer.impl.VancedInstaller
+import com.vanced.manager.downloader.util.getVancedYoutubePath
 import com.vanced.manager.preferences.holder.managerVariantPref
 import com.vanced.manager.preferences.holder.vancedLanguagesPref
 import com.vanced.manager.preferences.holder.vancedThemePref
 import com.vanced.manager.preferences.holder.vancedVersionPref
-import com.vanced.manager.ui.viewmodel.HomeViewModel
 import com.vanced.manager.util.arch
-import com.vanced.manager.util.log
+import com.vanced.manager.util.getLatestOrProvidedAppVersion
+import java.io.File
 
 class VancedDownloader(
-    vancedInstaller: VancedInstaller,
     private val vancedAPI: VancedAPI,
-) : AppDownloader(
-    appName = "vanced",
-    appInstaller = vancedInstaller
-) {
+    private val context: Context,
+) : AppDownloader() {
 
-    private val theme by vancedThemePref
-    private val version by vancedVersionPref
-    private val variant by managerVariantPref
-    private val languages by vancedLanguagesPref
+    private lateinit var absoluteVersion: String
 
     override suspend fun download(
-        app: App,
-        viewModel: HomeViewModel
-    ) {
-        val files = listOf(
+        appVersions: List<String>?,
+        onProgress: (Float) -> Unit,
+        onFile: (String) -> Unit
+    ): DownloadStatus {
+        absoluteVersion = getLatestOrProvidedAppVersion(vancedVersionPref, appVersions)
+
+        val files = arrayOf(
             getFile(
                 type = "Theme",
-                apkName = "$theme.apk"
+                apkName = "$vancedThemePref.apk",
             ),
             getFile(
                 type = "Arch",
-                apkName = "split_config.$arch.apk"
+                apkName = "split_config.$arch.apk",
             )
-        ) + languages.map { language ->
-            getFile("Language", "split_config.$language.apk")
+        ) + vancedLanguagesPref.map { language ->
+            getFile(
+                type = "Language",
+                apkName = "split_config.$language.apk",
+            )
         }
-        downloadFiles(
+
+        val downloadStatus = downloadFiles(
             files = files,
-            viewModel,
-            folderStructure = "$version/$variant",
-            onError = {
-                log("error", it)
-            }
+            onProgress = onProgress,
+            onFile = onFile,
         )
+        if (downloadStatus.isError)
+            return downloadStatus
+
+        return DownloadStatus.Success
+    }
+
+    override suspend fun downloadRoot(
+        appVersions: List<String>?,
+        onProgress: (Float) -> Unit,
+        onFile: (String) -> Unit
+    ): DownloadStatus {
+        return DownloadStatus.Success
+    }
+
+    override fun getSavedFilePath(): String {
+        val directory = File(getVancedYoutubePath(absoluteVersion, managerVariantPref, context))
+
+        if (!directory.exists())
+            directory.mkdirs()
+
+        return directory.path
     }
 
     private fun getFile(
         type: String,
         apkName: String,
-    ) = File(
+    ) = DownloadFile(
         call = vancedAPI.getFiles(
-            version = version,
-            variant = variant,
+            version = absoluteVersion,
+            variant = managerVariantPref,
             type = type,
             apkName = apkName
         ),
